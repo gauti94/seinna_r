@@ -1,0 +1,228 @@
+---
+title: "Seinna R verkefni"
+author: "Jón Gauti - jgs23@hi.is og Tómas Andri - tab9@hi.is"
+date: "2026-04-14"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, echo=FALSE}
+library(tidyverse)
+library(dplyr) # fyrir filter
+library(scales)
+library(knitr)
+library(ggplot2)
+```
+
+## Hluti 1 - Gagnamöndl
+
+### a)
+Lesum inn skránna með header og dálkar aðskildir með kommu.
+```{r read from file}
+jt <- read.csv("survey_results_public_rev.csv", header = T, sep =",")
+```
+
+### b)
+Filterum svörin þannig að þau innihaldi einungis svör frá starfandi forriturum sem gefa upp laun í Evrum eða dollurum.
+```{r filter file}
+jt <- filter(jt, MainBranch=="I am a developer by profession" & Employment=="Employed, full-time" & RemoteWork %in% c("Remote", "In-person") & Currency %in% c("USD\tUnited States dollar", "EUR European Euro"))
+
+```
+
+### c)
+Fjarlægjum augljósa útlaga 1232142154 og 100000000000000000000 
+```{r remove outlaws}
+jt <- filter(jt, is.na(CompTotal) | CompTotal <= 2000000)
+```
+
+### d)
+Bætum við CompTotalUSD breytunni sem gefur upp öll laun í USD.
+```{r add CompTotalUSD}
+jt$CompTotalUSD <- ifelse(jt$Currency == "EUR European Euro", jt$CompTotal / 0.85, jt$CompTotal)
+```
+
+Skoðum löndin sem flest svör komu frá. Limitum head skipunina við 10 til þess að sjá top 10.
+```{r show answer count from top 10 countries}
+country_answer_count <- head(count(jt, Country, sort = TRUE), 10)
+country_answer_count 
+```
+
+### e)
+Veljum Frakkland, Spán og Úkraínu og notum svörin frá þeim.
+```{r select 3 countries}
+jt <- filter(jt, Country %in% c("France", "Spain", "Ukraine"))
+```
+
+
+### f)
+Lítur rétt út, talnabreytur fá int og textabreytur fá chr.
+Breyti MainBranch, Employment, RemoteWork, Country, Currency og EdLevel í flokkabreytur til að byrja með.
+```{r change chr to factor}
+jt$MainBranch <- factor(jt$MainBranch)
+jt$Employment <- factor(jt$Employment)
+jt$RemoteWork <- factor(jt$RemoteWork)
+jt$Country <- factor(jt$Country)
+jt$Currency <- factor(jt$Currency)
+jt$EdLevel <- factor(jt$EdLevel)
+```
+
+
+Við getum séð öll möguleg svör fyrir EdLevel með því að keyra levels() fallið á breytuna.
+Svo yfirskrifum við level heitin.
+```{r change language of EdLevel and Country answers}
+levels(jt$EdLevel) # Sjá núverandi nöfn
+levels(jt$EdLevel) <- c("Tveggja ára háskólagráða", "Bakkalárgráða", "Meistaragráða", "Grunnskólanám", "Fagleg háskólagráða", "Framhaldsskólanám", "Háskólanám án gráðu", "Annað")
+levels(jt$Country) <- c("Frakkland", "Spánn", "Úkraína")
+```
+
+### g)
+Tökum úrtak úr þýðinu
+```{r sample of size 200}
+set.seed(40)
+jt %>%
+  group_by(Country) %>%
+  sample_n(size = 200) -> urtak
+
+```
+
+
+## Hluti 2 
+
+### h)
+
+```{r table that shows work type count by country}
+tafla_remoteWork <- urtak %>%
+  count(Country, RemoteWork, name = "Count") %>%
+  kable()
+
+tafla_remoteWork
+
+```
+
+### i)
+
+```{r table showing ratio of remote work vs in person work by country}
+
+tafla_ratio <- urtak %>%
+  count(Country, RemoteWork, name = "Count") %>%
+  group_by(Country) %>%
+  mutate(ratio = Count / sum(Count)) %>%
+  kable()
+
+tafla_ratio
+```
+
+
+### j)
+
+Við getum notað kí-kvaðrat próf til þess að kanna hvort hlutföll þeirra sem vinna á staðnum séu misjöfn í löndunum þremur.
+Forsendur fyrir að geta notað kí-kvaðrat prófið eru að tíðni í hverju hólfi sé nægilega há, eða >= 5.
+
+Gefum okkur að \( \alpha = 0.05 \)
+
+
+Setjum upp tilgáturnar:
+
+\( H_0: \) Hlutföllin eru þau sömu í öllum þremur löndunum
+
+\( H_1: \) Hlutföllin eru ekki þau sömu í öllum þremur löndunum
+
+Við höfnum núlltilgátu ef \( X^2 > \chi^2_{1-\alpha, (l-1)(d-1)}\) eða ef p <= a
+
+
+```{r chisq test}
+
+# Byrjum á að búa til töfluna
+tafla_chisq_test <- table(urtak$Country, urtak$RemoteWork)
+
+tafla_chisq_test
+
+chisq.test(tafla_chisq_test)
+
+```
+Hér fáum við út að prófstærðin er 85.491, frígráður eru 2, og p gildið okkar er rosalega lítið, 2.2e-16.
+Þar sem p-gildið okkar er minna en a = 0.05, þá höfnum við H0, og drögum þá ályktun að það sé munur á hlutföllunum í amk einu landi.
+
+
+## Hluti 3
+
+### k)
+
+Við notum okkur tilgátupróf fyrir meðaltal tveggja þýða : ólík dreifni
+
+Getum okkur að \( \alpha = 0.05 \)
+
+Setjum upp tilgáturnar:
+
+\( H_0: \) Það er ekki munur á meðallaunum eftir því hvort fólk vinni í fjarvinnu eða staðvinnu.
+
+\( H_1: \) Það er munur á meðallaunum eftir því hvort fólk vinni í fjarvinnu eða staðvinnu.
+
+Við höfnum núlltilgátu ef að \( T < -t_{1 - \alpha/2,(v)} \) eða \( T > t_{1-\alpha/2,(v)} \)
+
+```{r mean between two samples, not the same variance}
+
+t.test(CompTotalUSD ~ RemoteWork, data = urtak)
+
+```
+Fáum út:
+t = -5.7429
+frígráður = 330.67
+p gildi = 2.11e-08
+
+
+Þar sem p-gildið er minna en 0.05, þá höfnum við núlltilgátunni og ályktum að það sé munur á meðallaunum eftir því hvort fólk sé í fjarvinnu eða á staðnum.
+Tilgátuprófið okkar bendir til þess að starfsmenn í fjarvinnu séu með hærri meðallaun.
+
+
+
+### l)
+
+```{r add starfsreynsla variable}
+medaltal <- mean(urtak$YearsCodePro, na.rm = TRUE)
+medaltal
+
+urtak$starfsreynsla <- ifelse(urtak$YearsCodePro < medaltal, "laegri", "haerri")
+
+
+```
+
+Meðaltalið fyrir YearsCodePro í úrtakinu okkar er 9.183193 ár.
+
+
+### m)
+
+Við notum tilgátupróf fyrir mismun meðaltals tveggja þýða : ólík dreifni
+
+Gefum okkur \( \alpha=0.05 \)
+
+Setjum upp tilgáturnar:
+
+\( H_0: \) Ekki munur á meðallaunum eftir því hvort kóðarar eru undir eða yfir meðalkóðunartíma 
+
+\( H_1: \) Munur á meðallaunum eftir því hvort kóðarar eru undir eða yfir meðalkóðunartíma.
+
+Við höfnum núlltilgátu ef að \( T < -t_{1 - \alpha/2,(v)} \) eða \( T > t_{1-\alpha/2,(v)} \)
+
+```{r mean between two samples, different variance}
+
+t.test(CompTotalUSD ~ starfsreynsla, data = urtak)
+
+```
+Fáum út:
+
+t = 8.1329
+frígráður = 270.11
+p-gildi = 1.532e-14
+
+Þar sem p-gildið er minna en \( \alpha \) þá höfnum við núlltilgátunni og drögum þá ályktun að það sé munur á meðallaunum eftir því hvort kóðarar eru undir eða yfir meðalkóðunartíma.
+
+Tilgátuprófið okkar bendir til þess að kóðarar með meiri starfsreynslu séu með hærri meðallaun.
+
+
+
