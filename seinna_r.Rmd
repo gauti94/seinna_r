@@ -224,5 +224,89 @@ p-gildi = 1.532e-14
 
 Tilgátuprófið okkar bendir til þess að kóðarar með meiri starfsreynslu séu með hærri meðallaun.
 
+##Hluti 4
+## n) Teiknið viðeigandi mynd af breytunum `CompTotalUSD` og `Country`
+
+```{r boxplot salary by country}
+ggplot(urtak, aes(x = Country, y = CompTotalUSD)) +
+  geom_boxplot() +
+  labs(
+    title = "Laun (USD) eftir löndum",
+    x = "Land",
+    y = "Heildarlaun í USD"
+  ) +
+  scale_y_continuous(labels = comma)
+```
+
+Hér notum við kassarit til að bera saman dreifingu launa (`CompTotalUSD`) milli landanna þriggja. Kassarit er þar sem talnabreytu fer eftir flokkabreytu (`Country`).
+
+
+## o) Kannið með viðeigandi tilgátuprófi hvort munur sé á meðallaunum í löndunum þremur
+
+Við notum einfalt fervikagreiningarpróf (ANOVA) til að kanna hvort munur sé á meðallaunum milli landanna þriggja.
+
+\(H0\): Meðallaun eru þau sömu í öllum löndunum þremur.  
+\(H1\): Að minnsta kosti eitt land hefur annað meðaltal en hin.
+
+Gefum okkur \( \alpha = 0.05 \).
+
+```{r anova salary by country}
+anova_mod <- aov(CompTotalUSD ~ Country, data = urtak)
+summary(anova_mod)
+```
+
+Út frá próinu fengum við F 21.84 og p gildið 7.88*10^-10. Þar sem p gildið er minna en 0.05 höfnum við núlltilgátunni. Við drögum því ályktunina að það sé marktækur munur á meðallaunum í að minnsta kosti einu af þessum þremur löndum.
+
+## p) Teiknið viðeigandi mynd af breytunum `CompTotalUSD` og `YearsCodePro`
+
+```{r scatterplot salary experience}
+ggplot(urtak, aes(x = YearsCodePro, y = CompTotalUSD)) +
+  geom_point() +
+  labs(
+    title = "Laun (USD) og starfsreynsla", x = "Ár í starfsreynslu",y = "Heildarlaun í USD"
+  ) +
+  scale_y_continuous(labels = comma)
+```
+
+Hér notum við dreifirit til að sýna sambandið milli `YearsCodePro` og `CompTotalUSD`. Dreifirit er viðeigandi þar sem báðar breyturnar eru talnabreytur.
+
+Út frá myndinni sést að laun virðast almennt hækka eftir því sem starfsreynsla eykst. Samt er nokkur dreifing í gögnunum og líklega eru einhverjir útlagar til staðar. Þess vegna getur einfalt línulegt aðhvarf verið ágæt byrjun til að lýsa sambandinu, en það nær ekki alveg að útskýra það fullkomlega.
+
+
+## q) Smíðið einfalt aðhvarfslíkan sem hægt væri að nota til að spá fyrir um launum út frá starfsreynslu
+
+```{r linear regression salary experience}
+lin_mod <- lm(CompTotalUSD ~ YearsCodePro, data = urtak)
+summary(lin_mod)
+```
+
+```{r predict salary after 5 years}
+predict(lin_mod, newdata = data.frame(YearsCodePro = 5))
+```
+
+Við búum til einfalt línulegt aðhvarfslíkan til að spá fyrir um laun (`CompTotalUSD`) út frá starfsreynslu (`YearsCodePro`).
+Líkanið hefur formið
+
+\[
+\hat{y} = b_0 + b_1 x
+\]
+þar sem \(b_0\) er skurðpunktur og \(b_1\) er hallatalan.
+Samkvæmt líkaninu er skurðpunkturinn um 38249, sem þýðir að áætluð laun fyrir einstakling með 0 ára starfsreynslu eru um 38.249 USD.Hallatalan er um 2574, sem þýðir að laun hækka að meðaltali um um 2.574 USD fyrir hvert ár í viðbót af starfsreynslu.Skýringarhlutfall líkansins er \(R^2 = 0.1749\), sem þýðir að líkanið útskýrir um 17.5% af breytileikanum í launum. Það bendir til þess að fleiri þættir en bara starfsreynsla hafi áhrif á laun.Samkvæmt líkaninu eru áætluð laun fyrir forritara með 5 ára starfsreynslu um 51.119 USD.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
